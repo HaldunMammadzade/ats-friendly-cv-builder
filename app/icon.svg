@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="folio-bg" x1="6" y1="4" x2="42" y2="44">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="55%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <radialGradient id="folio-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(36 36) scale(20)">
+      <stop offset="0%" stop-color="#3b66f6" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#3b66f6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="folio-paper" x1="14" y1="10" x2="38" y2="40">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f8fafc"/>
+    </linearGradient>
+    <linearGradient id="folio-brand" x1="11" y1="9" x2="37" y2="16">
+      <stop offset="0%" stop-color="#608cfa"/>
+      <stop offset="50%" stop-color="#3b66f6"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+    <linearGradient id="folio-score" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#0f9d58"/>
+    </linearGradient>
+    <filter id="folio-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="folio-glow-pass" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="48" height="48" rx="11" fill="url(#folio-bg)"/>
+  <circle cx="36" cy="36" r="20" fill="url(#folio-glow)"/>
+  <rect width="48" height="48" rx="11" fill="none" stroke="#fff" stroke-opacity="0.09"/>
+  <g stroke="#608cfa" stroke-opacity="0.28" stroke-linecap="round">
+    <path d="M5 14h11" stroke-width="1.5"/>
+    <path d="M5 18.5h8" stroke-width="1.25"/>
+    <path d="M5 23h13" stroke-width="1.5"/>
+    <path d="M5 27.5h7" stroke-width="1.25"/>
+  </g>
+  <rect x="4.5" y="9" width="22" height="28" rx="2.5" fill="#475569" fill-opacity="0.45" transform="rotate(-11 15.5 23)"/>
+  <rect x="7.5" y="10.5" width="22" height="28" rx="2.5" fill="#334155" fill-opacity="0.55" transform="rotate(-5 18.5 24.5)"/>
+  <ellipse cx="26" cy="42.5" rx="13" ry="2.5" fill="#000" fill-opacity="0.28"/>
+  <rect x="10.5" y="8.5" width="27" height="33" rx="3" fill="url(#folio-paper)" stroke="#cbd5e1" stroke-width="0.6" stroke-opacity="0.75" filter="url(#folio-shadow)"/>
+  <path d="M33.5 8.5h4v4L33.5 8.5z" fill="#e2e8f0" fill-opacity="0.9"/>
+  <path d="M33.5 8.5l4 4" stroke="#cbd5e1" stroke-width="0.6"/>
+  <path d="M10.5 11.5c0-1.66 1.34-3 3-3h21c1.66 0 3 1.34 3 3v4.5H10.5V11.5z" fill="url(#folio-brand)"/>
+  <path fill="#fff" fill-opacity="0.96" d="M14.2 10.2h9.2v2.45h-6.35v2.95h5.35v2.4h-5.35v5.55h-2.85V10.2z"/>
+  <path d="M14 21.5h14M14 24.75h11.5M14 28h13.5M14 31.25h8.5" stroke="#0f172a" stroke-opacity="0.14" stroke-width="1.35" stroke-linecap="round"/>
+  <rect x="14" y="26.4" width="10" height="3.2" rx="1.6" fill="#0f9d58" fill-opacity="0.16"/>
+  <path d="M15.2 28.1h5.8" stroke="url(#folio-score)" stroke-width="1.65" stroke-linecap="round"/>
+  <circle cx="23.8" cy="28.1" r="1.1" fill="#0f9d58"/>
+  <circle cx="36.5" cy="36.5" r="9.5" fill="#0b1220" fill-opacity="0.95"/>
+  <circle cx="36.5" cy="36.5" r="8.25" fill="none" stroke="#fff" stroke-opacity="0.1" stroke-width="1"/>
+  <circle cx="36.5" cy="36.5" r="6.75" fill="none" stroke="#fff" stroke-opacity="0.06" stroke-width="3.5" stroke-dasharray="28 14" transform="rotate(-90 36.5 36.5)"/>
+  <path d="M36.5 29.4a7.1 7.1 0 0 1 6.2 3.65" stroke="url(#folio-score)" stroke-width="2.4" stroke-linecap="round" fill="none" filter="url(#folio-glow-pass)"/>
+  <text x="36.5" y="38.2" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="700" font-family="system-ui,-apple-system,sans-serif">92</text>
+</svg>

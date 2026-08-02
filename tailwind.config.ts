@@ -2,15 +2,16 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
         serif: ["Georgia", "Cambria", "Times New Roman", "serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       colors: {
         ink: {
@@ -24,11 +25,34 @@ const config: Config = {
           700: "#334155",
           800: "#1e293b",
           900: "#0f172a",
+          950: "#0b1220",
         },
+        brand: {
+          50: "#eff4ff",
+          100: "#dbe6fe",
+          200: "#bfd3fe",
+          300: "#93b4fd",
+          400: "#608cfa",
+          500: "#3b66f6",
+          600: "#2547eb",
+          700: "#1e40af",
+          800: "#1c3690",
+          900: "#1d3272",
+        },
+        line: "#e4e7ec",
+        // Semantic colours for ATS check states.
+        pass: "#0f9d58",
+        warn: "#c2820b",
+        danger: "#d1373c",
+      },
+      boxShadow: {
+        card: "0 1px 2px rgba(16,24,40,0.05), 0 1px 3px rgba(16,24,40,0.06)",
+        pop: "0 8px 28px rgba(16,24,40,0.14)",
       },
       animation: {
-        "fade-in": "fadeIn 0.25s ease-in-out",
-        "slide-up": "slideUp 0.35s ease-out",
+        "fade-in": "fadeIn 0.2s ease-out",
+        "slide-up": "slideUp 0.25s ease-out",
+        "scale-in": "scaleIn 0.14s ease-out",
       },
       keyframes: {
         fadeIn: {
@@ -36,8 +60,12 @@ const config: Config = {
           "100%": { opacity: "1" },
         },
         slideUp: {
-          "0%": { transform: "translateY(8px)", opacity: "0" },
+          "0%": { transform: "translateY(6px)", opacity: "0" },
           "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        scaleIn: {
+          "0%": { transform: "scale(0.97)", opacity: "0" },
+          "100%": { transform: "scale(1)", opacity: "1" },
         },
       },
     },

@@ -1,319 +1,286 @@
-"use client";
-
 import {
   Document,
+  Font,
   Page,
+  StyleSheet,
   Text,
   View,
-  StyleSheet,
-  Font,
 } from "@react-pdf/renderer";
-import { CVData } from "@/types/cv";
+import type { CVData } from "@/types/cv";
+import { APP_NAME } from "@/lib/brand";
+import { buildDocument, type Block, type DocSection } from "@/lib/cv/blocks";
+import { MM_TO_PT, resolveTheme, type ResolvedTheme } from "@/lib/cv/templates";
 
-// Use a clean built-in serif (Times) for a classic, ATS-safe look.
-// @react-pdf ships Helvetica, Times-Roman, Courier by default.
+/**
+ * PDF rendering. Uses only the PDF base-14 fonts so the output contains real,
+ * extractable text with no embedded font subsetting — the single biggest factor
+ * in whether an ATS reads a resume correctly.
+ *
+ * Kept in lockstep with CVPreview by sharing buildDocument() and resolveTheme().
+ */
 
-const styles = StyleSheet.create({
-  page: {
-    paddingVertical: 40,
-    paddingHorizontal: 50,
-    fontFamily: "Times-Roman",
-    fontSize: 10.5,
-    color: "#1a1a1a",
-    lineHeight: 1.5,
-  },
-  // Header
-  name: {
-    fontSize: 22,
-    fontFamily: "Times-Bold",
-    textAlign: "center",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    color: "#111",
-  },
-  title: {
-    fontSize: 11,
-    textAlign: "center",
-    color: "#555",
-    marginTop: 4,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
-  contact: {
-    fontSize: 8.8,
-    textAlign: "center",
-    color: "#666",
-    marginTop: 7,
-  },
-  headerRule: {
-    borderBottomWidth: 2,
-    borderBottomColor: "#1a1a1a",
-    marginTop: 11,
-  },
-  // Section
-  section: {
-    marginTop: 13,
-  },
-  sectionTitle: {
-    fontSize: 10.5,
-    fontFamily: "Times-Bold",
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    color: "#111",
-    borderBottomWidth: 1,
-    borderBottomColor: "#aaa",
-    paddingBottom: 3,
-    marginBottom: 7,
-  },
-  // Generic
-  bold: { fontFamily: "Times-Bold", color: "#1a1a1a" },
-  italic: { fontFamily: "Times-Italic" },
-  rowBetween: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  dateText: {
-    fontSize: 9,
-    color: "#666",
-    fontFamily: "Times-Italic",
-  },
-  locationText: {
-    fontSize: 9,
-    color: "#777",
-    marginTop: 1,
-  },
-  entry: {
-    marginBottom: 11,
-  },
-  // Bullets
-  bulletRow: {
-    flexDirection: "row",
-    marginTop: 3,
-  },
-  bulletDot: {
-    width: 12,
-    fontSize: 10.5,
-    color: "#444",
-  },
-  bulletText: {
-    flex: 1,
-    color: "#2a2a2a",
-  },
-  techLine: {
-    fontSize: 9.5,
-    marginTop: 4,
-    color: "#444",
-  },
-  // Skills
-  skillRow: {
-    flexDirection: "row",
-    marginBottom: 3,
-  },
-  skillCat: {
-    fontFamily: "Times-Bold",
-    color: "#1a1a1a",
-    width: 95,
-  },
-  skillItems: {
-    flex: 1,
-    color: "#2a2a2a",
-  },
-  // Languages
-  langWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  langItem: {
-    marginRight: 22,
-    marginBottom: 3,
-    color: "#2a2a2a",
-  },
-  summaryText: {
-    color: "#2a2a2a",
-    textAlign: "justify",
-  },
-});
+// Word breaking is off across the whole document. Left on, react-pdf splits
+// long tokens with a hyphen — "github.com/your-name", "Type-Script" — and a
+// keyword broken in half is a keyword the scanner will not match.
+Font.registerHyphenationCallback((word) => [word]);
 
-export function CVDocument({ cv }: { cv: CVData }) {
-  const { personal, summary, skills, experience, education, projects, languages } =
-    cv;
+const bold = (font: string) =>
+  font === "Times-Roman" ? "Times-Bold" : "Helvetica-Bold";
 
-  const contactParts = [
-    personal.email,
-    personal.phone,
-    personal.location,
-    personal.website,
-    personal.linkedin,
-    personal.github,
-  ].filter(Boolean);
+function createStyles(theme: ResolvedTheme) {
+  const { size, color, space, tokens, fonts } = theme;
 
-  const filteredSkills = skills.filter((s) => s.category || s.items);
-  const filteredExp = experience.filter((e) => e.role || e.company);
-  const filteredProjects = projects.filter((p) => p.name);
-  const filteredEdu = education.filter((e) => e.degree || e.school);
-  const filteredLangs = languages.filter((l) => l.name);
+  return StyleSheet.create({
+    page: {
+      paddingTop: theme.page.marginMm * MM_TO_PT,
+      paddingBottom: theme.page.marginMm * MM_TO_PT,
+      paddingHorizontal: theme.page.marginMm * MM_TO_PT,
+      fontFamily: fonts.pdf.body,
+      fontSize: size.body,
+      lineHeight: theme.lineHeight,
+      color: color.text,
+    },
+    header: {
+      marginBottom: space.section,
+      textAlign: tokens.headerAlign,
+    },
+    name: {
+      fontFamily: bold(fonts.pdf.heading),
+      fontSize: size.name,
+      // An explicit line height is required here: without it the name's line
+      // box collapses towards the body line height and the job title below
+      // overlaps its descenders, which also merges the two into one line for
+      // anything extracting text from the PDF.
+      lineHeight: 1.2,
+      letterSpacing: tokens.nameUppercase ? 1 : -0.2,
+      color:
+        tokens.accentOn === "name-and-heading" ? color.accent : color.text,
+    },
+    title: {
+      fontSize: size.title,
+      lineHeight: 1.25,
+      color: color.muted,
+      marginTop: space.bullet * 2,
+    },
+    contacts: {
+      fontSize: size.contact,
+      color: color.muted,
+      marginTop: space.bullet * 2.5,
+      lineHeight: 1.5,
+    },
+    section: { marginBottom: space.section },
+    heading: {
+      fontFamily: bold(fonts.pdf.heading),
+      fontSize: size.heading,
+      lineHeight: 1.25,
+      letterSpacing: tokens.headingLetterSpacing,
+      color: tokens.accentOn === "none" ? color.text : color.accent,
+      marginBottom: space.afterHeading,
+      paddingBottom: tokens.rule === "none" ? 0 : space.afterHeading * 0.5,
+      borderBottomWidth: tokens.rule === "none" ? 0 : tokens.rule === "full" ? 1 : 0.6,
+      borderBottomColor: color.rule,
+      borderBottomStyle: "solid",
+    },
+    paragraph: { fontSize: size.body },
+    entry: { marginBottom: space.entry },
+    entryRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    entryLeft: { flex: 1, paddingRight: 8 },
+    entryTitle: { fontFamily: bold(fonts.pdf.body), fontSize: size.body },
+    entrySubtitle: { fontSize: size.body, color: color.muted },
+    entryRight: { textAlign: "right", fontSize: size.meta, color: color.muted },
+    entryRightSub: { fontSize: size.small, color: color.muted },
+    description: { fontSize: size.body, marginTop: space.bullet },
+    bulletRow: {
+      flexDirection: "row",
+      marginTop: space.bullet,
+      paddingRight: 2,
+    },
+    bulletChar: { width: 9, fontSize: size.body },
+    bulletText: { flex: 1, fontSize: size.body },
+    footnote: {
+      fontSize: size.small,
+      color: color.muted,
+      marginTop: space.bullet * 1.5,
+    },
+    labelled: { fontSize: size.body, marginBottom: space.bullet * 1.6 },
+    label: { fontFamily: bold(fonts.pdf.body) },
+  });
+}
+
+type Styles = ReturnType<typeof createStyles>;
+
+function EntryView({
+  block,
+  styles,
+  bulletChar,
+}: {
+  block: Extract<Block, { kind: "entry" }>;
+  styles: Styles;
+  bulletChar: string;
+}) {
+  return (
+    <View style={styles.entry} wrap={false}>
+      <View style={styles.entryRow}>
+        <View style={styles.entryLeft}>
+          <Text>
+            <Text style={styles.entryTitle}>{block.title}</Text>
+            {block.subtitle ? (
+              <Text style={styles.entrySubtitle}>
+                {block.title ? " \u2014 " : ""}
+                {block.subtitle}
+              </Text>
+            ) : null}
+          </Text>
+        </View>
+        {(block.meta || block.metaSub) && (
+          <View>
+            {block.meta ? (
+              <Text style={styles.entryRight}>{block.meta}</Text>
+            ) : null}
+            {block.metaSub ? (
+              <Text style={styles.entryRightSub}>{block.metaSub}</Text>
+            ) : null}
+          </View>
+        )}
+      </View>
+
+      {block.description ? (
+        <Text style={styles.description}>{block.description}</Text>
+      ) : null}
+
+      {block.bullets.map((bullet, i) => (
+        <View key={i} style={styles.bulletRow}>
+          <Text style={styles.bulletChar}>{bulletChar}</Text>
+          <Text style={styles.bulletText}>{bullet}</Text>
+        </View>
+      ))}
+
+      {block.footnote ? (
+        <Text style={styles.footnote}>{block.footnote}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+function BlockView({
+  block,
+  styles,
+  bulletChar,
+}: {
+  block: Block;
+  styles: Styles;
+  bulletChar: string;
+}) {
+  switch (block.kind) {
+    case "paragraph":
+    case "inline":
+      return <Text style={styles.paragraph}>{block.text}</Text>;
+
+    case "labelled":
+      return (
+        <Text style={styles.labelled}>
+          {block.label ? (
+            <Text style={styles.label}>{block.label}: </Text>
+          ) : null}
+          <Text>{block.value}</Text>
+        </Text>
+      );
+
+    case "bullets":
+      return (
+        <View>
+          {block.items.map((item, i) => (
+            <View key={i} style={styles.bulletRow}>
+              <Text style={styles.bulletChar}>{bulletChar}</Text>
+              <Text style={styles.bulletText}>{item}</Text>
+            </View>
+          ))}
+        </View>
+      );
+
+    case "entry":
+      return (
+        <EntryView block={block} styles={styles} bulletChar={bulletChar} />
+      );
+
+    default:
+      return null;
+  }
+}
+
+function SectionView({
+  section,
+  styles,
+  bulletChar,
+  uppercase,
+}: {
+  section: DocSection;
+  styles: Styles;
+  bulletChar: string;
+  uppercase: boolean;
+}) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.heading}>
+        {uppercase ? section.heading.toUpperCase() : section.heading}
+      </Text>
+      {section.blocks.map((block, i) => (
+        <BlockView
+          key={i}
+          block={block}
+          styles={styles}
+          bulletChar={bulletChar}
+        />
+      ))}
+    </View>
+  );
+}
+
+export default function CVDocument({ cv }: { cv: CVData }) {
+  const doc = buildDocument(cv);
+  const theme = resolveTheme(cv.design);
+  const styles = createStyles(theme);
+  const { tokens } = theme;
 
   return (
     <Document
-      title={(personal.fullName || cv.name) + " CV"}
-      author={personal.fullName || cv.name}
+      title={`${cv.personal.fullName || cv.name} — CV`}
+      author={cv.personal.fullName || undefined}
+      subject={cv.personal.title || undefined}
+      keywords={cv.skills.flatMap((g) => g.items).join(", ")}
+      creator={APP_NAME}
+      producer={APP_NAME}
     >
-      <Page size="A4" style={styles.page}>
-        {/* HEADER */}
-        <View>
-          <Text style={styles.name}>{personal.fullName || "Your Name"}</Text>
-          {personal.title ? (
-            <Text style={styles.title}>{personal.title}</Text>
+      <Page size={cv.design.paperSize === "a4" ? "A4" : "LETTER"} style={styles.page}>
+        <View style={styles.header}>
+          <Text style={styles.name}>
+            {tokens.nameUppercase
+              ? (doc.header.name || "Your Name").toUpperCase()
+              : doc.header.name || "Your Name"}
+          </Text>
+          {doc.header.title ? (
+            <Text style={styles.title}>{doc.header.title}</Text>
           ) : null}
-          {contactParts.length > 0 ? (
-            <Text style={styles.contact}>{contactParts.join("   |   ")}</Text>
+          {doc.header.contacts.length ? (
+            <Text style={styles.contacts}>
+              {doc.header.contacts.join("  |  ")}
+            </Text>
           ) : null}
-          <View style={styles.headerRule} />
         </View>
 
-        {/* SUMMARY */}
-        {summary ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Summary</Text>
-            <Text style={styles.summaryText}>{summary}</Text>
-          </View>
-        ) : null}
-
-        {/* SKILLS */}
-        {filteredSkills.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Skills</Text>
-            {filteredSkills.map((s) => (
-              <View key={s.id} style={styles.skillRow} wrap={false}>
-                <Text style={styles.skillCat}>{s.category}</Text>
-                <Text style={styles.skillItems}>{s.items}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {/* EXPERIENCE */}
-        {filteredExp.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Work Experience</Text>
-            {filteredExp.map((exp) => (
-              <View key={exp.id} style={styles.entry} wrap={false}>
-                <View style={styles.rowBetween}>
-                  <Text style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.bold}>{exp.role}</Text>
-                    {exp.company ? (
-                      <Text>
-                        {" \u2014 "}
-                        <Text style={styles.italic}>{exp.company}</Text>
-                      </Text>
-                    ) : null}
-                  </Text>
-                  <Text style={styles.dateText}>
-                    {exp.startDate}
-                    {exp.startDate || exp.endDate || exp.current ? " \u2013 " : ""}
-                    {exp.current ? "Present" : exp.endDate}
-                  </Text>
-                </View>
-                {exp.location ? (
-                  <Text style={styles.locationText}>{exp.location}</Text>
-                ) : null}
-                {exp.bullets
-                  .filter((b) => b.trim())
-                  .map((b, i) => (
-                    <View key={i} style={styles.bulletRow}>
-                      <Text style={styles.bulletDot}>{"\u2022"}</Text>
-                      <Text style={styles.bulletText}>{b}</Text>
-                    </View>
-                  ))}
-                {exp.tech ? (
-                  <Text style={styles.techLine}>
-                    <Text style={styles.bold}>Tech: </Text>
-                    {exp.tech}
-                  </Text>
-                ) : null}
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {/* PROJECTS */}
-        {filteredProjects.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Projects</Text>
-            {filteredProjects.map((p) => (
-              <View key={p.id} style={{ marginBottom: 8 }} wrap={false}>
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.bold, { flex: 1, paddingRight: 8 }]}>
-                    {p.name}
-                  </Text>
-                  {p.link ? <Text style={styles.dateText}>{p.link}</Text> : null}
-                </View>
-                {p.description ? (
-                  <Text style={{ marginTop: 2, color: "#2a2a2a" }}>
-                    {p.description}
-                  </Text>
-                ) : null}
-                {p.tech ? (
-                  <Text style={styles.techLine}>
-                    <Text style={styles.bold}>Tech: </Text>
-                    {p.tech}
-                  </Text>
-                ) : null}
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {/* EDUCATION */}
-        {filteredEdu.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Education</Text>
-            {filteredEdu.map((edu) => (
-              <View key={edu.id} style={{ marginBottom: 8 }} wrap={false}>
-                <View style={styles.rowBetween}>
-                  <Text style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.bold}>{edu.degree}</Text>
-                    {edu.school ? (
-                      <Text>
-                        {" \u2014 "}
-                        <Text style={styles.italic}>{edu.school}</Text>
-                      </Text>
-                    ) : null}
-                  </Text>
-                  <Text style={styles.dateText}>
-                    {edu.startDate}
-                    {edu.startDate || edu.endDate ? " \u2013 " : ""}
-                    {edu.endDate}
-                  </Text>
-                </View>
-                {edu.location ? (
-                  <Text style={styles.locationText}>{edu.location}</Text>
-                ) : null}
-                {edu.details ? (
-                  <Text style={{ fontSize: 9.5, marginTop: 2, color: "#2a2a2a" }}>
-                    {edu.details}
-                  </Text>
-                ) : null}
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {/* LANGUAGES */}
-        {filteredLangs.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Languages</Text>
-            <View style={styles.langWrap}>
-              {filteredLangs.map((l) => (
-                <Text key={l.id} style={styles.langItem}>
-                  <Text style={styles.bold}>{l.name}</Text>
-                  {l.level ? <Text style={{ color: "#555" }}> {"\u2014"} {l.level}</Text> : null}
-                </Text>
-              ))}
-            </View>
-          </View>
-        ) : null}
+        {doc.sections.map((section) => (
+          <SectionView
+            key={section.id}
+            section={section}
+            styles={styles}
+            bulletChar={tokens.bulletChar}
+            uppercase={tokens.headingUppercase}
+          />
+        ))}
       </Page>
     </Document>
   );

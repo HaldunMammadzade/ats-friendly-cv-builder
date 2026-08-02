@@ -1,427 +1,310 @@
 "use client";
 
-import { CVData } from "@/types/cv";
+import { CSSProperties, memo } from "react";
+import type { CVData } from "@/types/cv";
+import { buildDocument, type Block, type DocSection } from "@/lib/cv/blocks";
+import { resolveTheme, type ResolvedTheme } from "@/lib/cv/templates";
+
+/**
+ * On-screen A4 rendering. Sizes are in pt and mm so what you see matches the
+ * exported PDF, which uses the same theme values.
+ */
 
 interface Props {
   cv: CVData;
-  forPrint?: boolean;
+  /** Renders page-break guides at multiples of the paper height. */
+  showPageGuides?: boolean;
 }
 
-export default function CVPreview({ cv, forPrint = false }: Props) {
-  const {
-    personal,
-    summary,
-    skills,
-    experience,
-    education,
-    projects,
-    languages,
-  } = cv;
+function SectionHeading({
+  text,
+  theme,
+}: {
+  text: string;
+  theme: ResolvedTheme;
+}) {
+  const { tokens, size, color, space } = theme;
 
-  const contactParts = [
-    personal.email,
-    personal.phone,
-    personal.location,
-    personal.website,
-    personal.linkedin,
-    personal.github,
-  ].filter(Boolean);
+  const style: CSSProperties = {
+    fontFamily: theme.fonts.css.heading,
+    fontSize: `${size.heading}pt`,
+    fontWeight: 700,
+    letterSpacing: `${tokens.headingLetterSpacing}px`,
+    textTransform: tokens.headingUppercase ? "uppercase" : "none",
+    color: tokens.accentOn === "none" ? color.text : color.accent,
+    marginBottom: `${space.afterHeading}pt`,
+    paddingBottom: tokens.rule === "none" ? 0 : `${space.afterHeading * 0.5}pt`,
+    borderBottom:
+      tokens.rule === "none"
+        ? "none"
+        : `${tokens.rule === "full" ? 1 : 0.6}px solid ${color.rule}`,
+  };
+
+  return <h2 style={style}>{text}</h2>;
+}
+
+function EntryBlock({
+  block,
+  theme,
+}: {
+  block: Extract<Block, { kind: "entry" }>;
+  theme: ResolvedTheme;
+}) {
+  const { size, color, space, tokens } = theme;
 
   return (
-    <div id={forPrint ? "cv-print" : undefined}>
-      <div className="cv-page">
-        {/* ===== HEADER ===== */}
-        <header className="cv-section" style={{ textAlign: "center" }}>
-          <h1
-            style={{
-              fontSize: "22pt",
-              fontWeight: 700,
-              letterSpacing: "2px",
-              lineHeight: 1.1,
-              margin: 0,
-              textTransform: "uppercase",
-              color: "#111",
-            }}
-          >
-            {personal.fullName || "Your Name"}
-          </h1>
-
-          {personal.title && (
-            <p
-              style={{
-                fontSize: "11pt",
-                color: "#555",
-                margin: "5px 0 0",
-                letterSpacing: "1px",
-                textTransform: "uppercase",
-                fontWeight: 400,
-              }}
-            >
-              {personal.title}
-            </p>
+    <div style={{ marginBottom: `${space.entry}pt`, breakInside: "avoid" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: "8pt",
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ fontWeight: 700, fontSize: `${size.body}pt` }}>
+            {block.title}
+          </span>
+          {block.subtitle && (
+            <span style={{ fontSize: `${size.body}pt`, color: color.muted }}>
+              {block.title ? " \u2014 " : ""}
+              {block.subtitle}
+            </span>
           )}
-
-          {contactParts.length > 0 && (
-            <p
-              style={{
-                fontSize: "8.8pt",
-                color: "#666",
-                margin: "9px 0 0",
-                lineHeight: 1.6,
-                letterSpacing: "0.2px",
-              }}
-            >
-              {contactParts.join("   |   ")}
-            </p>
-          )}
-
+        </div>
+        {(block.meta || block.metaSub) && (
           <div
             style={{
-              borderBottom: "2px solid #1a1a1a",
-              marginTop: "13px",
+              textAlign: "right",
+              flexShrink: 0,
+              fontSize: `${size.meta}pt`,
+              color: color.muted,
+              whiteSpace: "nowrap",
             }}
-          />
-        </header>
-
-        {/* ===== SUMMARY ===== */}
-        {summary && (
-          <Section title="Summary">
-            <p style={{ margin: 0, textAlign: "justify", color: "#2a2a2a" }}>
-              {summary}
-            </p>
-          </Section>
-        )}
-
-        {/* ===== SKILLS ===== */}
-        {skills.some((s) => s.category || s.items) && (
-          <Section title="Skills">
-            <table
-              style={{ width: "100%", borderCollapse: "collapse" }}
-            >
-              <tbody>
-                {skills
-                  .filter((s) => s.category || s.items)
-                  .map((s) => (
-                    <tr key={s.id} className="cv-entry">
-                      <td
-                        style={{
-                          fontWeight: 700,
-                          verticalAlign: "top",
-                          whiteSpace: "nowrap",
-                          paddingRight: "12px",
-                          paddingBottom: "4px",
-                          width: "1%",
-                          color: "#1a1a1a",
-                        }}
-                      >
-                        {s.category}
-                      </td>
-                      <td
-                        style={{
-                          verticalAlign: "top",
-                          paddingBottom: "4px",
-                          color: "#2a2a2a",
-                        }}
-                      >
-                        {s.items}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </Section>
-        )}
-
-        {/* ===== EXPERIENCE ===== */}
-        {experience.some((e) => e.role || e.company) && (
-          <Section title="Work Experience">
-            {experience
-              .filter((e) => e.role || e.company)
-              .map((exp) => (
-                <div
-                  key={exp.id}
-                  className="cv-entry"
-                  style={{ marginBottom: "12px" }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "baseline",
-                      gap: "12px",
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, color: "#1a1a1a" }}>
-                      {exp.role}
-                      {exp.company && (
-                        <span style={{ fontWeight: 400 }}>
-                          {" \u2014 "}
-                          <span style={{ fontStyle: "italic" }}>
-                            {exp.company}
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "9pt",
-                        color: "#666",
-                        whiteSpace: "nowrap",
-                        fontStyle: "italic",
-                      }}
-                    >
-                      {exp.startDate}
-                      {(exp.startDate || exp.endDate || exp.current) &&
-                        " \u2013 "}
-                      {exp.current ? "Present" : exp.endDate}
-                    </div>
-                  </div>
-
-                  {exp.location && (
-                    <div
-                      style={{
-                        fontSize: "9pt",
-                        color: "#777",
-                        marginTop: "1px",
-                      }}
-                    >
-                      {exp.location}
-                    </div>
-                  )}
-
-                  {exp.bullets.filter((b) => b.trim()).length > 0 && (
-                    <ul
-                      style={{
-                        margin: "6px 0 0",
-                        paddingLeft: "0",
-                        listStyle: "none",
-                      }}
-                    >
-                      {exp.bullets
-                        .filter((b) => b.trim())
-                        .map((b, i) => (
-                          <li
-                            key={i}
-                            style={{
-                              position: "relative",
-                              paddingLeft: "15px",
-                              marginBottom: "3.5px",
-                              color: "#2a2a2a",
-                            }}
-                          >
-                            <span
-                              style={{
-                                position: "absolute",
-                                left: "3px",
-                                top: "0",
-                                color: "#444",
-                              }}
-                            >
-                              {"\u2022"}
-                            </span>
-                            {b}
-                          </li>
-                        ))}
-                    </ul>
-                  )}
-
-                  {exp.tech && (
-                    <div
-                      style={{
-                        fontSize: "9.5pt",
-                        marginTop: "5px",
-                        color: "#444",
-                      }}
-                    >
-                      <span style={{ fontWeight: 700, color: "#1a1a1a" }}>
-                        Tech:
-                      </span>{" "}
-                      {exp.tech}
-                    </div>
-                  )}
-                </div>
-              ))}
-          </Section>
-        )}
-
-        {/* ===== PROJECTS ===== */}
-        {projects.some((p) => p.name) && (
-          <Section title="Projects">
-            {projects
-              .filter((p) => p.name)
-              .map((p) => (
-                <div
-                  key={p.id}
-                  className="cv-entry"
-                  style={{ marginBottom: "9px" }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "baseline",
-                      gap: "12px",
-                    }}
-                  >
-                    <span style={{ fontWeight: 700, color: "#1a1a1a" }}>
-                      {p.name}
-                    </span>
-                    {p.link && (
-                      <span
-                        style={{
-                          fontSize: "9pt",
-                          color: "#666",
-                          whiteSpace: "nowrap",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        {p.link}
-                      </span>
-                    )}
-                  </div>
-                  {p.description && (
-                    <p style={{ margin: "2px 0 0", color: "#2a2a2a" }}>
-                      {p.description}
-                    </p>
-                  )}
-                  {p.tech && (
-                    <div
-                      style={{
-                        fontSize: "9.5pt",
-                        marginTop: "2px",
-                        color: "#444",
-                      }}
-                    >
-                      <span style={{ fontWeight: 700, color: "#1a1a1a" }}>
-                        Tech:
-                      </span>{" "}
-                      {p.tech}
-                    </div>
-                  )}
-                </div>
-              ))}
-          </Section>
-        )}
-
-        {/* ===== EDUCATION ===== */}
-        {education.some((e) => e.degree || e.school) && (
-          <Section title="Education">
-            {education
-              .filter((e) => e.degree || e.school)
-              .map((edu) => (
-                <div
-                  key={edu.id}
-                  className="cv-entry"
-                  style={{ marginBottom: "8px" }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "baseline",
-                      gap: "12px",
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, color: "#1a1a1a" }}>
-                      {edu.degree}
-                      {edu.school && (
-                        <span style={{ fontWeight: 400 }}>
-                          {" \u2014 "}
-                          <span style={{ fontStyle: "italic" }}>
-                            {edu.school}
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "9pt",
-                        color: "#666",
-                        whiteSpace: "nowrap",
-                        fontStyle: "italic",
-                      }}
-                    >
-                      {edu.startDate}
-                      {(edu.startDate || edu.endDate) && " \u2013 "}
-                      {edu.endDate}
-                    </div>
-                  </div>
-                  {edu.location && (
-                    <div
-                      style={{
-                        fontSize: "9pt",
-                        color: "#777",
-                      }}
-                    >
-                      {edu.location}
-                    </div>
-                  )}
-                  {edu.details && (
-                    <div
-                      style={{
-                        fontSize: "9.5pt",
-                        marginTop: "2px",
-                        color: "#2a2a2a",
-                      }}
-                    >
-                      {edu.details}
-                    </div>
-                  )}
-                </div>
-              ))}
-          </Section>
-        )}
-
-        {/* ===== LANGUAGES ===== */}
-        {languages.some((l) => l.name) && (
-          <Section title="Languages">
-            <div
-              style={{ display: "flex", flexWrap: "wrap", gap: "5px 26px" }}
-            >
-              {languages
-                .filter((l) => l.name)
-                .map((l) => (
-                  <div key={l.id} style={{ color: "#2a2a2a" }}>
-                    <span style={{ fontWeight: 700, color: "#1a1a1a" }}>
-                      {l.name}
-                    </span>
-                    {l.level && (
-                      <span style={{ color: "#555" }}> {"\u2014"} {l.level}</span>
-                    )}
-                  </div>
-                ))}
-            </div>
-          </Section>
+          >
+            <div>{block.meta}</div>
+            {block.metaSub && (
+              <div style={{ fontSize: `${size.small}pt` }}>{block.metaSub}</div>
+            )}
+          </div>
         )}
       </div>
+
+      {block.description && (
+        <p
+          style={{
+            fontSize: `${size.body}pt`,
+            marginTop: `${space.bullet}pt`,
+            color: color.text,
+          }}
+        >
+          {block.description}
+        </p>
+      )}
+
+      {block.bullets.length > 0 && (
+        <ul style={{ marginTop: `${space.bullet * 1.5}pt`, listStyle: "none" }}>
+          {block.bullets.map((bullet, i) => (
+            <li
+              key={i}
+              style={{
+                display: "flex",
+                gap: "5pt",
+                fontSize: `${size.body}pt`,
+                marginBottom: `${space.bullet}pt`,
+              }}
+            >
+              <span style={{ flexShrink: 0 }}>{tokens.bulletChar}</span>
+              <span style={{ flex: 1 }}>{bullet}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {block.footnote && (
+        <p
+          style={{
+            fontSize: `${size.small}pt`,
+            color: color.muted,
+            marginTop: `${space.bullet * 1.5}pt`,
+          }}
+        >
+          {block.footnote}
+        </p>
+      )}
     </div>
   );
 }
 
-function Section({
-  title,
-  children,
+function BlockView({ block, theme }: { block: Block; theme: ResolvedTheme }) {
+  const { size, space, tokens } = theme;
+
+  switch (block.kind) {
+    case "paragraph":
+      return (
+        <p style={{ fontSize: `${size.body}pt`, textAlign: "justify" }}>
+          {block.text}
+        </p>
+      );
+
+    case "inline":
+      return <p style={{ fontSize: `${size.body}pt` }}>{block.text}</p>;
+
+    case "labelled":
+      return (
+        <p
+          style={{
+            fontSize: `${size.body}pt`,
+            marginBottom: `${space.bullet * 1.6}pt`,
+          }}
+        >
+          {block.label && (
+            <span style={{ fontWeight: 700 }}>{block.label}: </span>
+          )}
+          <span>{block.value}</span>
+        </p>
+      );
+
+    case "bullets":
+      return (
+        <ul style={{ listStyle: "none" }}>
+          {block.items.map((item, i) => (
+            <li
+              key={i}
+              style={{
+                display: "flex",
+                gap: "5pt",
+                fontSize: `${size.body}pt`,
+                marginBottom: `${space.bullet}pt`,
+              }}
+            >
+              <span>{tokens.bulletChar}</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      );
+
+    case "entry":
+      return <EntryBlock block={block} theme={theme} />;
+
+    default:
+      return null;
+  }
+}
+
+function SectionView({
+  section,
+  theme,
 }: {
-  title: string;
-  children: React.ReactNode;
+  section: DocSection;
+  theme: ResolvedTheme;
 }) {
   return (
-    <section className="cv-section" style={{ marginTop: "15px" }}>
-      <h2
-        style={{
-          fontSize: "10.5pt",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: "1.5px",
-          borderBottom: "1px solid #aaa",
-          paddingBottom: "3px",
-          marginBottom: "8px",
-          color: "#111",
-        }}
-      >
-        {title}
-      </h2>
-      {children}
+    <section style={{ marginBottom: `${theme.space.section}pt` }}>
+      <SectionHeading text={section.heading} theme={theme} />
+      {section.blocks.map((block, i) => (
+        <BlockView key={i} block={block} theme={theme} />
+      ))}
     </section>
   );
 }
+
+function CVPreviewImpl({ cv, showPageGuides = true }: Props) {
+  const doc = buildDocument(cv);
+  const theme = resolveTheme(cv.design);
+  const { tokens, size, color, space, page } = theme;
+
+  const isEmpty = !doc.header.name && doc.sections.length === 0;
+
+  return (
+    <div
+      className="cv-page"
+      data-cv-root
+      style={{
+        width: `${page.widthMm}mm`,
+        minHeight: `${page.heightMm}mm`,
+        padding: `${page.marginMm}mm`,
+        fontFamily: theme.fonts.css.body,
+        fontSize: `${size.body}pt`,
+        lineHeight: theme.lineHeight,
+        color: color.text,
+        background: "#ffffff",
+        position: "relative",
+      }}
+    >
+      {showPageGuides && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent calc(${page.heightMm}mm - 1px), rgba(220,38,38,0.35) calc(${page.heightMm}mm - 1px), rgba(220,38,38,0.35) ${page.heightMm}mm)`,
+          }}
+        />
+      )}
+
+      <header
+        style={{
+          textAlign: tokens.headerAlign,
+          marginBottom: `${space.section}pt`,
+        }}
+      >
+        <h1
+          style={{
+            fontFamily: theme.fonts.css.heading,
+            fontSize: `${size.name}pt`,
+            fontWeight: 700,
+            lineHeight: 1.2,
+            letterSpacing: tokens.nameUppercase ? "1px" : "-0.2px",
+            textTransform: tokens.nameUppercase ? "uppercase" : "none",
+            color:
+              tokens.accentOn === "name-and-heading" ? color.accent : color.text,
+          }}
+        >
+          {doc.header.name || "Your Name"}
+        </h1>
+
+        {doc.header.title && (
+          <p
+            style={{
+              fontSize: `${size.title}pt`,
+              color: color.muted,
+              marginTop: `${space.bullet * 2}pt`,
+            }}
+          >
+            {doc.header.title}
+          </p>
+        )}
+
+        {doc.header.contacts.length > 0 && (
+          <p
+            style={{
+              fontSize: `${size.contact}pt`,
+              color: color.muted,
+              marginTop: `${space.bullet * 2.5}pt`,
+              lineHeight: 1.5,
+            }}
+          >
+            {doc.header.contacts.join("  |  ")}
+          </p>
+        )}
+      </header>
+
+      {isEmpty ? (
+        <p style={{ color: "#9ca3af", fontSize: `${size.body}pt` }}>
+          Start filling in the editor and your CV will appear here.
+        </p>
+      ) : (
+        doc.sections.map((section) => (
+          <SectionView key={section.id} section={section} theme={theme} />
+        ))
+      )}
+    </div>
+  );
+}
+
+const CVPreview = memo(CVPreviewImpl);
+export default CVPreview;
