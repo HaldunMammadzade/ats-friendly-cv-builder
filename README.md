@@ -56,13 +56,27 @@ from Project Settings → API.
 
 ### 5. Configure authentication
 
-In Authentication → URL Configuration, set the Site URL to
-`http://localhost:3000` and add these redirect URLs:
+**Local dev** — Authentication → URL Configuration:
+
+- Site URL: `http://localhost:3000`
+- Redirect URLs:
 
 ```
-http://localhost:3000/auth/callback
-http://localhost:3000/auth/confirm
+http://localhost:3000/**
 ```
+
+**Vercel production** — use your live domain instead of localhost:
+
+- Site URL: `https://your-app.vercel.app`
+- Redirect URLs (keep local + add production):
+
+```
+http://localhost:3000/**
+https://your-app.vercel.app/**
+https://*.vercel.app/**
+```
+
+Set `NEXT_PUBLIC_SITE_URL=https://your-app.vercel.app` in Vercel → Settings → Environment Variables, then redeploy.
 
 For Google sign-in, enable the Google provider under Authentication → Providers
 and paste in a client ID and secret from the Google Cloud Console. The

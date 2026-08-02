@@ -2,29 +2,53 @@ import "server-only";
 
 import { headers } from "next/headers";
 
+function stripTrailingSlash(url: string): string {
+  return url.replace(/\/$/, "");
+}
+
+function isLocalHost(host: string): boolean {
+  return (
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.endsWith(".local")
+  );
+}
+
 /**
- * Absolute origin for auth redirect URLs.
+ * Absolute origin for auth redirect URLs (OAuth, email confirm, password reset).
  *
- * Supabase requires an exact match against its allow-list, so an explicit
- * NEXT_PUBLIC_SITE_URL always wins. The header fallback covers preview
- * deployments and local development where the origin varies.
+ * On Vercel/preview we prefer the live request host so a stale
+ * NEXT_PUBLIC_SITE_URL=http://localhost:3000 in env cannot break production auth.
  */
 export async function getSiteUrl(): Promise<string> {
-  const configured =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "");
-
-  if (configured) return configured.replace(/\/$/, "");
-
   const headerList = await headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
   const protocol =
     headerList.get("x-forwarded-proto") ??
-    (host?.startsWith("localhost") ? "http" : "https");
+    (host && isLocalHost(host) ? "http" : "https");
 
-  return host ? `${protocol}://${host}` : "http://localhost:3000";
+  if (host && !isLocalHost(host)) {
+    return stripTrailingSlash(`${protocol}://${host}`);
+  }
+
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured && !configured.includes("localhost")) {
+    return stripTrailingSlash(configured);
+  }
+
+  const vercelHost =
+    process.env.VERCEL_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL ?? "";
+  if (vercelHost) {
+    return stripTrailingSlash(
+      vercelHost.startsWith("http") ? vercelHost : `https://${vercelHost}`
+    );
+  }
+
+  if (configured) return stripTrailingSlash(configured);
+
+  return host
+    ? stripTrailingSlash(`${protocol}://${host}`)
+    : "http://localhost:3000";
 }
 
 /** Keeps post-login redirects on this origin. */
